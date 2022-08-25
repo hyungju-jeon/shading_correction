@@ -1,16 +1,6 @@
-import cv2
+from ..utils import shading_util
 
-from zimg import *
-from ..utils import shading_util as sc
-
-import click
-
-@click.command()
-def cli():
-    """Example script."""
-    click.echo('Hello World!')
-
-if __name__ == "__main__":
+def stack_shading_correction():
     img_folder = '/Volumes/shared/Personal/Jihyun/mGRASPi/CONVERGENCE/4inputstoDG/20220603_oist_fig7_set1to4/confocal/7_3_1/IV/temp_1'
     result_folder = '/Volumes/shared/Personal/Jihyun/mGRASPi/CONVERGENCE/4inputstoDG/20220603_oist_fig7_set1to4/confocal/7_3_1/IV/temp_1' \
                     '/shading_corrected'
@@ -51,27 +41,24 @@ if __name__ == "__main__":
         # darkfield.append(darkfield_ch)
 
     for img_idx in range(nimgs):
-            print(f'Loading {img_list[img_idx]} : {img_idx} out of {nimgs}')
-            img_zimg = ZImg(os.path.join(img_folder, img_list[img_idx]))
-            img = img_zimg.data[0].copy()
+        print(f'Loading {img_list[img_idx]} : {img_idx} out of {nimgs}')
+        img_zimg = ZImg(os.path.join(img_folder, img_list[img_idx]))
+        img = img_zimg.data[0].copy()
 
-            img_chs = img.shape[0]
-            img_depth = img.shape[1]
-            img_width = img.shape[2]
-            img_height = img.shape[3]
-            print(f'Correcting {img_list[img_idx]} : {img_idx} out of {nimgs}')
-            for ch in range(img_chs):
-                corrected_stack = np.zeros(shape=(img_chs, img_depth, img_width, img_height), dtype='uint8')
+        img_chs = img.shape[0]
+        img_depth = img.shape[1]
+        img_width = img.shape[2]
+        img_height = img.shape[3]
+        print(f'Correcting {img_list[img_idx]} : {img_idx} out of {nimgs}')
+        for ch in range(img_chs):
+            corrected_stack = np.zeros(shape=(img_chs, img_depth, img_width, img_height), dtype='uint8')
 
-                for z_idx in range(img_depth):
-                    corrected_block = ((img[ch, z_idx, :, :].astype(np.float64)) / flatfield[ch])
-                    # corrected_block = ((img[ch, z_idx, :, :].astype(np.float64)-darkfield[ch]) / flatfield[ch])
-                    corrected_block[corrected_block < 0] = 0
-                    corrected_block[corrected_block >= 255] = 255
-                    img_zimg.data[0][ch, z_idx, :, :] = corrected_block.astype('uint8')
+            for z_idx in range(img_depth):
+                corrected_block = ((img[ch, z_idx, :, :].astype(np.float64)) / flatfield[ch])
+                # corrected_block = ((img[ch, z_idx, :, :].astype(np.float64)-darkfield[ch]) / flatfield[ch])
+                corrected_block[corrected_block < 0] = 0
+                corrected_block[corrected_block >= 255] = 255
+                img_zimg.data[0][ch, z_idx, :, :] = corrected_block.astype('uint8')
 
-            save_folder = result_folder
-            img_zimg.save(os.path.join(save_folder, f'{img_list[img_idx][:-4]}.tif'))
-
-    # TODO : Multi-stack shading + background correction
-    # TODO : Save in imaris format
+        save_folder = result_folder
+        img_zimg.save(os.path.join(save_folder, f'{img_list[img_idx][:-4]}.tif'))

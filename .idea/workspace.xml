@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="c7978641-d045-44ba-9085-7f2169dfec1c" name="Default Changelist" comment="">
+      <change beforePath="$PROJECT_DIR$/.idea/shading_correction.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/shading_correction.iml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/_test/test_changLab_imaris_shading.py" beforeDir="false" afterPath="$PROJECT_DIR$/_test/test_changLab_imaris_shading.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/_test/test_stack_shading_correction.py" beforeDir="false" afterPath="$PROJECT_DIR$/_test/test_stack_shading_correction.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/3D_channel_align.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/3D_channel_align.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/3D_realignment.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/3D_realignment.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/3D_registration.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/3D_registration.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/3D_stack.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/3D_stack.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/annotation_mask.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/annotation_mask.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/cutting_angle_est.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/cutting_angle_est.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/max_height_width.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/max_height_width.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/registration_midline.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/registration_midline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/stack_volume.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/stack_volume.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/stack_volume_midline.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/stack_volume_midline.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test-yk.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/test-yk.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/volume_registration.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/volume_registration.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectId" id="2Dq2mC4iCqYoHfEhAen38wLnx2M" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="NEW_TOOLWINDOW_STRIPE_DEFAULTS" value="true" />
+    <property name="RunOnceActivity.OpenProjectViewOnStart" value="true" />
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="WebServerToolWindowFactoryState" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="node.js.detected.package.eslint" value="true" />
+    <property name="node.js.selected.package.eslint" value="(autodetect)" />
+    <property name="settings.editor.selected.configurable" value="com.jetbrains.python.configuration.PyActiveSdkModuleConfigurable" />
+    <property name="vue.rearranger.settings.migration" value="true" />
+  </component>
+  <component name="RunManager">
+    <configuration name="test_stack_shading_correction" type="PythonConfigurationType" factoryName="Python" temporary="true" nameIsGenerated="true">
+      <module name="shading_correction" />
+      <option name="INTERPRETER_OPTIONS" value="" />
+      <option name="PARENT_ENVS" value="true" />
+      <envs>
+        <env name="PYTHONUNBUFFERED" value="1" />
+      </envs>
+      <option name="SDK_HOME" value="" />
+      <option name="WORKING_DIRECTORY" value="$PROJECT_DIR$/_test" />
+      <option name="IS_MODULE_SDK" value="true" />
+      <option name="ADD_CONTENT_ROOTS" value="true" />
+      <option name="ADD_SOURCE_ROOTS" value="true" />
+      <EXTENSION ID="PythonCoverageRunConfigurationExtension" runner="coverage.py" />
+      <option name="SCRIPT_NAME" value="$PROJECT_DIR$/_test/test_stack_shading_correction.py" />
+      <option name="PARAMETERS" value="" />
+      <option name="SHOW_COMMAND_LINE" value="false" />
+      <option name="EMULATE_TERMINAL" value="false" />
+      <option name="MODULE_MODE" value="false" />
+      <option name="REDIRECT_INPUT" value="false" />
+      <option name="INPUT_FILE" value="" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Python.test_stack_shading_correction" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="c7978641-d045-44ba-9085-7f2169dfec1c" name="Default Changelist" comment="" />
+      <created>1661412450571</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1661412450571</updated>
+      <workItem from="1661412452511" duration="171000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/shading_correction$test_stack_shading_correction.coverage" NAME="test_stack_shading_correction Coverage Results" MODIFIED="1661412616140" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="true" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$/_test" />
+  </component>
+</project>

@@ -1,5 +1,5 @@
 import click
-from src.run_shading_correction import *
+from .src.run_shading_correction import *
 
 CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
 

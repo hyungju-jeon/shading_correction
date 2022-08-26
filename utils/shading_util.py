@@ -8,6 +8,7 @@ import re
 
 from zimg import *
 from jinnylab.utils.brain_info import read_brain_info
+from jinnylab.utils import img_util, io
 from scipy import ndimage
 
 logger = logging.getLogger(__name__)
@@ -485,10 +486,6 @@ def correct_shading(input_filename, scene: int, *,
 
 
 if __name__ == "__main__":
-    from utils import logger as logg
-    from jinnylab.utils import img_util, io
-
-    logg.setup_logger()
 
     # compare with matlab
     # import glob

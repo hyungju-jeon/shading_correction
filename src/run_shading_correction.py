@@ -1,16 +1,21 @@
-from ..utils import shading_util
+import os
+import cv2
+from zimg import *
+from ..utils import shading_util as sc
 
-def stack_shading_correction():
-    img_folder = '/Volumes/shared/Personal/Jihyun/mGRASPi/CONVERGENCE/4inputstoDG/20220603_oist_fig7_set1to4/confocal/7_3_1/IV/temp_1'
-    result_folder = '/Volumes/shared/Personal/Jihyun/mGRASPi/CONVERGENCE/4inputstoDG/20220603_oist_fig7_set1to4/confocal/7_3_1/IV/temp_1' \
-                    '/shading_corrected'
+def stack_shading_correction(img_folder:str, result_folder:str = None):
+    if not result_folder:
+        result_folder = os.path.join(img_folder, 'shading_corrected')
+    if not os.path.exists(result_folder):
+        os.mkdir(result_folder)
 
+    # Load image tiles
     (_, _, file_list) = next(os.walk(img_folder))
     img_list = [fn for fn in file_list if '.lsm' in fn and 'TileSelection' not in fn]
     nimgs = len(img_list)
     img_info = ZImg.readImgInfos(os.path.join(img_folder, img_list[0]))
 
-    # TODO : Multi-stack shading Correction
+    #
     flatfield = []
     darkfield = []
     train_stack = [[] for _ in range(img_info[0].numChannels)]

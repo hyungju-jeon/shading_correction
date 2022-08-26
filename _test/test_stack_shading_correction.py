@@ -3,12 +3,6 @@ import cv2
 from zimg import *
 from ..utils import shading_util as sc
 
-import click
-
-@click.command()
-def cli():
-    """Example script."""
-    click.echo('Hello World!')
 
 if __name__ == "__main__":
     img_folder = '/Volumes/shared/Personal/Jihyun/mGRASPi/CONVERGENCE/4inputstoDG/20220603_oist_fig7_set1to4/confocal/7_3_1/IV/temp_1'

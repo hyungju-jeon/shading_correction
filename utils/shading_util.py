@@ -4,9 +4,8 @@ import skimage.exposure
 import logging
 import multiprocessing
 import math
-import re
+import numpy as np
 
-from zimg import *
 from jinnylab.utils.brain_info import read_brain_info
 from jinnylab.utils import img_util, io
 from scipy import ndimage

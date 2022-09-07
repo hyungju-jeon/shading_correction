@@ -1,6 +1,4 @@
-import os
 import cv2
-from zimg import *
 from ..utils import shading_util as sc
 
 def stack_shading_correction(img_folder:str, result_folder:str = None):

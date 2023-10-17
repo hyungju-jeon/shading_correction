@@ -23,7 +23,7 @@ def slice(input_path, output_path):
     stack_shading_correction(input_path, output_path)
 
 
-@cli.command(help="Corrects stitched 2D image in CZI")
+@cli.command(help="Corrects 3D Imaris Stack")
 @click.argument("input_path")
 @click.option("--output_path", "-o", default="", help="Output file path")
 def imaris(input_path, output_path):

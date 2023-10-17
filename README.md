@@ -32,7 +32,4 @@
    pip install --upgrade --no-cache-dir opencv-contrib-python 
 
 
-
-   # install opencv
-   pip install --upgrade --no-cache-dir opencv-contrib-python # or pip install opencv-python
    ```

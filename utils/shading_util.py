@@ -5,8 +5,9 @@ import logging
 import multiprocessing
 import math
 import numpy as np
+import cv2
 
-from utils import img_util, io
+from utils import io
 from scipy import ndimage
 
 logger = logging.getLogger(__name__)
@@ -234,11 +235,8 @@ def BaSiC(
     """
     tile_height, tile_width = img_tiles.shape[1:]
     D = np.moveaxis(
-        img_util.imresize(
-            img_tiles,
-            des_height=working_size,
-            des_width=working_size,
-            interpolant=Interpolant.Linear,
+        cv2.resize(
+            img_tiles, dsize=(working_size, working_size), interpolation=cv2.INTER_CUBIC
         ).astype(np.float64),
         0,
         -1,
@@ -298,342 +296,344 @@ def BaSiC(
 
     # print(XA.shape, XAoffset.shape)
     shading = np.mean(XA, axis=-1) - XAoffset
-    flatfield = img_util.imresize(shading, des_height=tile_height, des_width=tile_width)
+    flatfield = cv2.resize(shading, dsize=(tile_height, tile_width), interpolation=cv2.INTER_CUBIC)
+    # flatfield = img_util.imresize(shading, des_height=tile_height, des_width=tile_width)
     flatfield /= np.mean(flatfield)
-    XAoffset = img_util.imresize(XAoffset, des_height=tile_height, des_width=tile_width)
+    XAoffset = cv2.resize(XAoffset, dsize=(tile_height, tile_width), interpolation=cv2.INTER_CUBIC)
+    # XAoffset = img_util.imresize(XAoffset, des_height=tile_height, des_width=tile_width)
     darkfield = XAoffset if estimate_darkfield else None
     return flatfield, darkfield
 
 
-def BaSiC_basefluor(
-    img_tiles: np.ndarray, flatfield: np.ndarray, *, darkfield=None, working_size=128
-):
-    """
-    Estimation of background fluoresence signal for time-lapse movie. Used in conjunction with BaSiC
+# def BaSiC_basefluor(
+#     img_tiles: np.ndarray, flatfield: np.ndarray, *, darkfield=None, working_size=128
+# ):
+#     """
+#     Estimation of background fluoresence signal for time-lapse movie. Used in conjunction with BaSiC
 
-    :param IF: nimg x nrows x ncols ndarray
-    :param flatfield: estimated flatfield
-    :param darkfield: to supply your darkfield, note it should be the same size as your fieldfield
-    :param working_size: downsample to working_size x working_size before processing
-    :return:
-        - fi_base: estimated background
+#     :param IF: nimg x nrows x ncols ndarray
+#     :param flatfield: estimated flatfield
+#     :param darkfield: to supply your darkfield, note it should be the same size as your fieldfield
+#     :param working_size: downsample to working_size x working_size before processing
+#     :return:
+#         - fi_base: estimated background
 
-    reference: Peng et al. "A BaSiC tool for background and shading correction of optical microscopy images" Nature Communications, 14836(2017)
-    """
-    tile_height, tile_width = img_tiles.shape[1:]
-    D = np.moveaxis(
-        img_util.imresize(
-            img_tiles,
-            des_height=working_size,
-            des_width=working_size,
-            interpolant=Interpolant.Linear,
-        ).astype(np.float64),
-        0,
-        -1,
-    )
-    nrows, ncols, nimgs = D.shape
-    D = D.reshape((nrows * ncols, -1))
-    flatfield = img_util.imresize(
-        flatfield, des_height=working_size, des_width=working_size, interpolant=Interpolant.Linear
-    ).astype(np.float64)
-    if darkfield is None:
-        darkfield = np.zeros(shape=flatfield.shape)
-    else:
-        darkfield = img_util.imresize(
-            darkfield,
-            des_height=working_size,
-            des_width=working_size,
-            interpolant=Interpolant.Linear,
-        ).astype(np.float64)
+#     reference: Peng et al. "A BaSiC tool for background and shading correction of optical microscopy images" Nature Communications, 14836(2017)
+#     """
+#     tile_height, tile_width = img_tiles.shape[1:]
+#     D = np.moveaxis(
+#         img_util.imresize(
+#             img_tiles,
+#             des_height=working_size,
+#             des_width=working_size,
+#             interpolant=Interpolant.Linear,
+#         ).astype(np.float64),
+#         0,
+#         -1,
+#     )
+#     nrows, ncols, nimgs = D.shape
+#     D = D.reshape((nrows * ncols, -1))
+#     flatfield = img_util.imresize(
+#         flatfield, des_height=working_size, des_width=working_size, interpolant=Interpolant.Linear
+#     ).astype(np.float64)
+#     if darkfield is None:
+#         darkfield = np.zeros(shape=flatfield.shape)
+#     else:
+#         darkfield = img_util.imresize(
+#             darkfield,
+#             des_height=working_size,
+#             des_width=working_size,
+#             interpolant=Interpolant.Linear,
+#         ).astype(np.float64)
 
-    weight = np.ones(shape=D.shape)
-    eplson = 0.1
-    tol = 1e-6
-    for reweighting_iter in range(5):
-        W_idct_hat = flatfield.flatten()
-        A_offset = darkfield.flatten()
-        A1_coeff = np.mean(D, axis=0)
-        # main iteration loop starts
-        temp = np.linalg.svd(D, full_matrices=False, compute_uv=False, hermitian=False)
-        norm_two = temp[0]
-        mu = 12.5 / norm_two  # this one can be tuned
-        mu_bar = mu * 1e7
-        rho = 1.5  # this one can be tuned
-        d_norm = np.linalg.norm(D, "fro")
-        ent1 = 1
-        iter = 0
-        total_svd = 0
-        converged = False
-        A1_hat = np.zeros(shape=D.shape)
-        E1_hat = np.zeros(shape=D.shape)
-        Y1 = 0
-        while not converged:
-            iter += 1
-            A1_hat = W_idct_hat.reshape((-1, 1)) @ A1_coeff.reshape((1, -1)) + A_offset.reshape(
-                (-1, 1)
-            )
-            # update E1 using l0 norm
-            E1_hat = E1_hat + (D - A1_hat - E1_hat + (1 / mu) * Y1) / ent1
-            E1_hat = np.fmax(E1_hat - weight / (ent1 * mu), 0.0) + np.fmin(
-                E1_hat + weight / (ent1 * mu), 0.0
-            )
-            # update A1_coeff, A2_coeff and A_offset
-            R1 = D - E1_hat
-            A1_coeff = np.mean(R1, axis=0) - np.mean(A_offset)
-            A1_coeff[A1_coeff < 0] = 0
+#     weight = np.ones(shape=D.shape)
+#     eplson = 0.1
+#     tol = 1e-6
+#     for reweighting_iter in range(5):
+#         W_idct_hat = flatfield.flatten()
+#         A_offset = darkfield.flatten()
+#         A1_coeff = np.mean(D, axis=0)
+#         # main iteration loop starts
+#         temp = np.linalg.svd(D, full_matrices=False, compute_uv=False, hermitian=False)
+#         norm_two = temp[0]
+#         mu = 12.5 / norm_two  # this one can be tuned
+#         mu_bar = mu * 1e7
+#         rho = 1.5  # this one can be tuned
+#         d_norm = np.linalg.norm(D, "fro")
+#         ent1 = 1
+#         iter = 0
+#         total_svd = 0
+#         converged = False
+#         A1_hat = np.zeros(shape=D.shape)
+#         E1_hat = np.zeros(shape=D.shape)
+#         Y1 = 0
+#         while not converged:
+#             iter += 1
+#             A1_hat = W_idct_hat.reshape((-1, 1)) @ A1_coeff.reshape((1, -1)) + A_offset.reshape(
+#                 (-1, 1)
+#             )
+#             # update E1 using l0 norm
+#             E1_hat = E1_hat + (D - A1_hat - E1_hat + (1 / mu) * Y1) / ent1
+#             E1_hat = np.fmax(E1_hat - weight / (ent1 * mu), 0.0) + np.fmin(
+#                 E1_hat + weight / (ent1 * mu), 0.0
+#             )
+#             # update A1_coeff, A2_coeff and A_offset
+#             R1 = D - E1_hat
+#             A1_coeff = np.mean(R1, axis=0) - np.mean(A_offset)
+#             A1_coeff[A1_coeff < 0] = 0
 
-            Z1 = D - A1_hat - E1_hat
-            Y1 = Y1 + mu * Z1
-            mu = min(mu * rho, mu_bar)
+#             Z1 = D - A1_hat - E1_hat
+#             Y1 = Y1 + mu * Z1
+#             mu = min(mu * rho, mu_bar)
 
-            # stop criterion
-            stopCriterion = np.linalg.norm(Z1, "fro") / d_norm
-            if stopCriterion < tol:
-                converged = True
+#             # stop criterion
+#             stopCriterion = np.linalg.norm(Z1, "fro") / d_norm
+#             if stopCriterion < tol:
+#                 converged = True
 
-            if np.mod(total_svd, 10) == 0:
-                logger.info(
-                    f"Iteration {iter} |E1|_0 {(np.abs(E1_hat) > 0).sum()}"
-                    f" stopCriterion {stopCriterion}"
-                )
+#             if np.mod(total_svd, 10) == 0:
+#                 logger.info(
+#                     f"Iteration {iter} |E1|_0 {(np.abs(E1_hat) > 0).sum()}"
+#                     f" stopCriterion {stopCriterion}"
+#                 )
 
-        # update weight
-        # XE_norm = bsxfun(@ldivide, E1_hat, mean(A1_hat))
-        XE_norm = np.mean(A1_hat, axis=0) / E1_hat
-        weight = 1.0 / (np.abs(XE_norm) + eplson)
-        weight = weight * weight.size / weight.sum()
+#         # update weight
+#         # XE_norm = bsxfun(@ldivide, E1_hat, mean(A1_hat))
+#         XE_norm = np.mean(A1_hat, axis=0) / E1_hat
+#         weight = 1.0 / (np.abs(XE_norm) + eplson)
+#         weight = weight * weight.size / weight.sum()
 
-    fi_base = A1_coeff
-    return fi_base
+#     fi_base = A1_coeff
+#     return fi_base
 
 
-def correct_shading(
-    input_filename,
-    scene: int,
-    *,
-    output_filename: str = None,
-    inverse_channels: tuple = tuple(),
-    correct_background_channels: tuple = tuple(),
-    correct_background_method: str = "annotation",  # annotation or BaSiC or annotation_interpolate
-    correct_background_annotation: str = None,
-    correct_background_annotation_slice_idx=None,
-    correct_background_mask: np.ndarray = None,
-    tile_overlap_ratio: float = 0.05,
-    normalize_intensity_channels: tuple = tuple(),
-    normalize_intensity_clip_limit: float = 0.1,
-):
-    infoList = ZImg.readImgInfos(input_filename)
-    logger.info(f"Running {os.path.basename(input_filename)}, scene {scene}")
-    if os.path.exists(output_filename):
-        logger.info(f"{os.path.basename(output_filename)} already exist")
-        return
-    if len(infoList) <= scene:
-        logger.info(f"Scene {scene} does not exist")
-        return
-    # print('image', infoList[scene])
-    blockList = ZImg.getInternalSubRegions(input_filename)
-    # np.set_printoptions(threshold=sys.maxsize)
-    # print('czi blocks in image', blockList[scene])
-    tile_width = blockList[scene][0].end.x - blockList[scene][0].start.x
-    tile_height = blockList[scene][0].end.y - blockList[scene][0].start.y
-    nchs = blockList[scene][0].end.c - blockList[scene][0].start.c
-    ntiles = len(blockList[scene])
-    # print(tile_width, tile_height, nchs)
-    tile_img = ZImg(input_filename, region=blockList[scene][0], scene=scene)
-    img_dtype = tile_img.data[0].dtype
-    stacked_tiles = np.zeros(shape=(nchs, ntiles, tile_height, tile_width), dtype=img_dtype)
-    res_mask = np.zeros(
-        shape=(infoList[scene].depth, infoList[scene].height, infoList[scene].width), dtype=np.uint8
-    )
-    for tile_idx, tile in enumerate(blockList[scene]):
-        tile_img = ZImg(input_filename, region=tile, scene=scene)
-        stacked_tiles[:, tile_idx, :, :] = tile_img.data[0][:, 0, :, :]
-        res_mask[
-            tile.start.z : tile.end.z, tile.start.y : tile.end.y, tile.start.x : tile.end.x
-        ] += 1
-    res_mask[res_mask == 0] = 1
-    res_img = np.zeros(
-        shape=(nchs, infoList[scene].depth, infoList[scene].height, infoList[scene].width),
-        dtype=np.float64,
-    )
+# def correct_shading(
+#     input_filename,
+#     scene: int,
+#     *,
+#     output_filename: str = None,
+#     inverse_channels: tuple = tuple(),
+#     correct_background_channels: tuple = tuple(),
+#     correct_background_method: str = "annotation",  # annotation or BaSiC or annotation_interpolate
+#     correct_background_annotation: str = None,
+#     correct_background_annotation_slice_idx=None,
+#     correct_background_mask: np.ndarray = None,
+#     tile_overlap_ratio: float = 0.05,
+#     normalize_intensity_channels: tuple = tuple(),
+#     normalize_intensity_clip_limit: float = 0.1,
+# ):
+#     infoList = ZImg.readImgInfos(input_filename)
+#     logger.info(f"Running {os.path.basename(input_filename)}, scene {scene}")
+#     if os.path.exists(output_filename):
+#         logger.info(f"{os.path.basename(output_filename)} already exist")
+#         return
+#     if len(infoList) <= scene:
+#         logger.info(f"Scene {scene} does not exist")
+#         return
+#     # print('image', infoList[scene])
+#     blockList = ZImg.getInternalSubRegions(input_filename)
+#     # np.set_printoptions(threshold=sys.maxsize)
+#     # print('czi blocks in image', blockList[scene])
+#     tile_width = blockList[scene][0].end.x - blockList[scene][0].start.x
+#     tile_height = blockList[scene][0].end.y - blockList[scene][0].start.y
+#     nchs = blockList[scene][0].end.c - blockList[scene][0].start.c
+#     ntiles = len(blockList[scene])
+#     # print(tile_width, tile_height, nchs)
+#     tile_img = ZImg(input_filename, region=blockList[scene][0], scene=scene)
+#     img_dtype = tile_img.data[0].dtype
+#     stacked_tiles = np.zeros(shape=(nchs, ntiles, tile_height, tile_width), dtype=img_dtype)
+#     res_mask = np.zeros(
+#         shape=(infoList[scene].depth, infoList[scene].height, infoList[scene].width), dtype=np.uint8
+#     )
+#     for tile_idx, tile in enumerate(blockList[scene]):
+#         tile_img = ZImg(input_filename, region=tile, scene=scene)
+#         stacked_tiles[:, tile_idx, :, :] = tile_img.data[0][:, 0, :, :]
+#         res_mask[
+#             tile.start.z : tile.end.z, tile.start.y : tile.end.y, tile.start.x : tile.end.x
+#         ] += 1
+#     res_mask[res_mask == 0] = 1
+#     res_img = np.zeros(
+#         shape=(nchs, infoList[scene].depth, infoList[scene].height, infoList[scene].width),
+#         dtype=np.float64,
+#     )
 
-    for ch in inverse_channels:
-        # print(ch, np.iinfo(img_dtype).max)
-        stacked_tiles[ch, :, :, :] = np.iinfo(img_dtype).max - stacked_tiles[ch, :, :, :]
+#     for ch in inverse_channels:
+#         # print(ch, np.iinfo(img_dtype).max)
+#         stacked_tiles[ch, :, :, :] = np.iinfo(img_dtype).max - stacked_tiles[ch, :, :, :]
 
-    if (
-        correct_background_method == "annotation"
-        or correct_background_method == "annotation_interpolate"
-    ):
-        assert correct_background_annotation is not None or correct_background_mask is not None
+#     if (
+#         correct_background_method == "annotation"
+#         or correct_background_method == "annotation_interpolate"
+#     ):
+#         assert correct_background_annotation is not None or correct_background_mask is not None
 
-    for ch in range(nchs):
-        flatfield, darkfield = BaSiC(stacked_tiles[ch, :, :, :], estimate_darkfield=True)
-        if ch in correct_background_channels:
-            if correct_background_method == "BaSiC":
-                basefluor = BaSiC_basefluor(
-                    stacked_tiles[ch, :, :, :], flatfield=flatfield, darkfield=darkfield
-                )
-                for tile_idx, tile in enumerate(blockList[scene]):
-                    corrected_tile = (
-                        stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
-                    ) / flatfield - basefluor[tile_idx]
-                    res_img[
-                        ch,
-                        tile.start.z : tile.end.z,
-                        tile.start.y : tile.end.y,
-                        tile.start.x : tile.end.x,
-                    ] += corrected_tile
-            elif correct_background_method == "annotation":
-                ra_dict = region_annotation.read_region_annotation(correct_background_annotation)
-                annotation_mask = region_annotation.convert_region_annotation_dict_to_binary_mask(
-                    ra_dict,
-                    height=infoList[scene].height,
-                    width=infoList[scene].width,
-                    slice_idx=correct_background_annotation_slice_idx,
-                )
-                for tile_idx, tile in enumerate(blockList[scene]):
-                    corrected_tile = (
-                        stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
-                    ) / flatfield
-                    tile_region_mask = annotation_mask[
-                        tile.start.y : tile.end.y, tile.start.x : tile.end.x
-                    ]
-                    if tile_region_mask.sum() / tile_region_mask.size < 0.9:
-                        corrected_tile[np.logical_not(tile_region_mask)] -= np.median(
-                            corrected_tile[np.logical_not(tile_region_mask)]
-                        )
-                    res_img[
-                        ch,
-                        tile.start.z : tile.end.z,
-                        tile.start.y : tile.end.y,
-                        tile.start.x : tile.end.x,
-                    ] += corrected_tile
-            elif correct_background_method == "annotation_interpolate":
-                if correct_background_mask is not None:
-                    assert (
-                        correct_background_mask.ndim == 2
-                        and correct_background_mask.shape[0] == infoList[scene].height
-                        and correct_background_mask.shape[1] == infoList[scene].width
-                    )
-                    annotation_mask = correct_background_mask.astype(np.bool)
-                else:
-                    ra_dict = region_annotation.read_region_annotation(
-                        correct_background_annotation
-                    )
-                    annotation_mask = (
-                        region_annotation.convert_region_annotation_dict_to_binary_mask(
-                            ra_dict,
-                            height=infoList[scene].height,
-                            width=infoList[scene].width,
-                            slice_idx=correct_background_annotation_slice_idx,
-                        )
-                    )
+#     for ch in range(nchs):
+#         flatfield, darkfield = BaSiC(stacked_tiles[ch, :, :, :], estimate_darkfield=True)
+#         if ch in correct_background_channels:
+#             if correct_background_method == "BaSiC":
+#                 basefluor = BaSiC_basefluor(
+#                     stacked_tiles[ch, :, :, :], flatfield=flatfield, darkfield=darkfield
+#                 )
+#                 for tile_idx, tile in enumerate(blockList[scene]):
+#                     corrected_tile = (
+#                         stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
+#                     ) / flatfield - basefluor[tile_idx]
+#                     res_img[
+#                         ch,
+#                         tile.start.z : tile.end.z,
+#                         tile.start.y : tile.end.y,
+#                         tile.start.x : tile.end.x,
+#                     ] += corrected_tile
+#             elif correct_background_method == "annotation":
+#                 ra_dict = region_annotation.read_region_annotation(correct_background_annotation)
+#                 annotation_mask = region_annotation.convert_region_annotation_dict_to_binary_mask(
+#                     ra_dict,
+#                     height=infoList[scene].height,
+#                     width=infoList[scene].width,
+#                     slice_idx=correct_background_annotation_slice_idx,
+#                 )
+#                 for tile_idx, tile in enumerate(blockList[scene]):
+#                     corrected_tile = (
+#                         stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
+#                     ) / flatfield
+#                     tile_region_mask = annotation_mask[
+#                         tile.start.y : tile.end.y, tile.start.x : tile.end.x
+#                     ]
+#                     if tile_region_mask.sum() / tile_region_mask.size < 0.9:
+#                         corrected_tile[np.logical_not(tile_region_mask)] -= np.median(
+#                             corrected_tile[np.logical_not(tile_region_mask)]
+#                         )
+#                     res_img[
+#                         ch,
+#                         tile.start.z : tile.end.z,
+#                         tile.start.y : tile.end.y,
+#                         tile.start.x : tile.end.x,
+#                     ] += corrected_tile
+#             elif correct_background_method == "annotation_interpolate":
+#                 if correct_background_mask is not None:
+#                     assert (
+#                         correct_background_mask.ndim == 2
+#                         and correct_background_mask.shape[0] == infoList[scene].height
+#                         and correct_background_mask.shape[1] == infoList[scene].width
+#                     )
+#                     annotation_mask = correct_background_mask.astype(np.bool)
+#                 else:
+#                     ra_dict = region_annotation.read_region_annotation(
+#                         correct_background_annotation
+#                     )
+#                     annotation_mask = (
+#                         region_annotation.convert_region_annotation_dict_to_binary_mask(
+#                             ra_dict,
+#                             height=infoList[scene].height,
+#                             width=infoList[scene].width,
+#                             slice_idx=correct_background_annotation_slice_idx,
+#                         )
+#                     )
 
-                annotation_mask = ndimage.binary_dilation(
-                    annotation_mask,
-                    structure=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(bool),
-                    iterations=200,
-                )
-                annotation_mask = ndimage.binary_fill_holes(annotation_mask)
+#                 annotation_mask = ndimage.binary_dilation(
+#                     annotation_mask,
+#                     structure=np.array([[1, 1, 1], [1, 1, 1], [1, 1, 1]]).astype(bool),
+#                     iterations=200,
+#                 )
+#                 annotation_mask = ndimage.binary_fill_holes(annotation_mask)
 
-                for tile_idx, tile in enumerate(blockList[scene]):
-                    tile_width = tile.end.x - tile.start.x
-                    tile_height = tile.end.y - tile.start.y
-                    break
+#                 for tile_idx, tile in enumerate(blockList[scene]):
+#                     tile_width = tile.end.x - tile.start.x
+#                     tile_height = tile.end.y - tile.start.y
+#                     break
 
-                def get_grid_xy(tile):
-                    grid_y = int(
-                        (tile.end.y + tile.start.y) / 2.0 - tile_height * tile_overlap_ratio
-                    ) // int(tile_height * (1 - 2 * tile_overlap_ratio))
-                    grid_x = int(
-                        (tile.end.x + tile.start.x) / 2.0 - tile_width * tile_overlap_ratio
-                    ) // int(tile_width * (1 - 2 * tile_overlap_ratio))
-                    return grid_x, grid_y
+#                 def get_grid_xy(tile):
+#                     grid_y = int(
+#                         (tile.end.y + tile.start.y) / 2.0 - tile_height * tile_overlap_ratio
+#                     ) // int(tile_height * (1 - 2 * tile_overlap_ratio))
+#                     grid_x = int(
+#                         (tile.end.x + tile.start.x) / 2.0 - tile_width * tile_overlap_ratio
+#                     ) // int(tile_width * (1 - 2 * tile_overlap_ratio))
+#                     return grid_x, grid_y
 
-                max_grid_x = 0
-                max_grid_y = 0
-                for tile_idx, tile in enumerate(blockList[scene]):
-                    grid_x, grid_y = get_grid_xy(tile)
-                    max_grid_x = max(max_grid_x, grid_x)
-                    max_grid_y = max(max_grid_y, grid_y)
-                background_grid = np.zeros(shape=(max_grid_y + 1, max_grid_x + 1), dtype=np.float64)
+#                 max_grid_x = 0
+#                 max_grid_y = 0
+#                 for tile_idx, tile in enumerate(blockList[scene]):
+#                     grid_x, grid_y = get_grid_xy(tile)
+#                     max_grid_x = max(max_grid_x, grid_x)
+#                     max_grid_y = max(max_grid_y, grid_y)
+#                 background_grid = np.zeros(shape=(max_grid_y + 1, max_grid_x + 1), dtype=np.float64)
 
-                for tile_idx, tile in enumerate(blockList[scene]):
-                    grid_x, grid_y = get_grid_xy(tile)
-                    corrected_tile = (
-                        stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
-                    ) / flatfield
-                    tile_region_mask = annotation_mask[
-                        tile.start.y : tile.end.y, tile.start.x : tile.end.x
-                    ]
-                    if tile_region_mask.sum() / tile_region_mask.size < 0.9:
-                        background_grid[grid_y, grid_x] = np.median(
-                            corrected_tile[np.logical_not(tile_region_mask)]
-                        )
+#                 for tile_idx, tile in enumerate(blockList[scene]):
+#                     grid_x, grid_y = get_grid_xy(tile)
+#                     corrected_tile = (
+#                         stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
+#                     ) / flatfield
+#                     tile_region_mask = annotation_mask[
+#                         tile.start.y : tile.end.y, tile.start.x : tile.end.x
+#                     ]
+#                     if tile_region_mask.sum() / tile_region_mask.size < 0.9:
+#                         background_grid[grid_y, grid_x] = np.median(
+#                             corrected_tile[np.logical_not(tile_region_mask)]
+#                         )
 
-                import scipy.sparse
-                import scipy.interpolate
+#                 import scipy.sparse
+#                 import scipy.interpolate
 
-                coo = scipy.sparse.coo_matrix(background_grid)
-                zfun_smooth_rbf = scipy.interpolate.Rbf(
-                    coo.row, coo.col, coo.data, function="cubic", smooth=0
-                )  # default smooth=0 for interpolation
-                background_grid_out = np.fromfunction(
-                    np.vectorize(zfun_smooth_rbf),
-                    (max_grid_y + 1, max_grid_x + 1),
-                    dtype=np.float64,
-                )
+#                 coo = scipy.sparse.coo_matrix(background_grid)
+#                 zfun_smooth_rbf = scipy.interpolate.Rbf(
+#                     coo.row, coo.col, coo.data, function="cubic", smooth=0
+#                 )  # default smooth=0 for interpolation
+#                 background_grid_out = np.fromfunction(
+#                     np.vectorize(zfun_smooth_rbf),
+#                     (max_grid_y + 1, max_grid_x + 1),
+#                     dtype=np.float64,
+#                 )
 
-                for tile_idx, tile in enumerate(blockList[scene]):
-                    grid_x, grid_y = get_grid_xy(tile)
-                    corrected_tile = (
-                        stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
-                    ) / flatfield
-                    estimated_background = background_grid_out[grid_y, grid_x]
-                    corrected_tile -= estimated_background
-                    res_img[
-                        ch,
-                        tile.start.z : tile.end.z,
-                        tile.start.y : tile.end.y,
-                        tile.start.x : tile.end.x,
-                    ] += corrected_tile
-            else:
-                assert False, f"unknown background correction method: {correct_background_method}"
-        else:
-            for tile_idx, tile in enumerate(blockList[scene]):
-                corrected_tile = (
-                    stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
-                ) / flatfield
-                res_img[
-                    ch,
-                    tile.start.z : tile.end.z,
-                    tile.start.y : tile.end.y,
-                    tile.start.x : tile.end.x,
-                ] += corrected_tile
-        res_img[ch, :, :, :] /= res_mask.astype(np.float64)
+#                 for tile_idx, tile in enumerate(blockList[scene]):
+#                     grid_x, grid_y = get_grid_xy(tile)
+#                     corrected_tile = (
+#                         stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
+#                     ) / flatfield
+#                     estimated_background = background_grid_out[grid_y, grid_x]
+#                     corrected_tile -= estimated_background
+#                     res_img[
+#                         ch,
+#                         tile.start.z : tile.end.z,
+#                         tile.start.y : tile.end.y,
+#                         tile.start.x : tile.end.x,
+#                     ] += corrected_tile
+#             else:
+#                 assert False, f"unknown background correction method: {correct_background_method}"
+#         else:
+#             for tile_idx, tile in enumerate(blockList[scene]):
+#                 corrected_tile = (
+#                     stacked_tiles[ch, tile_idx, :, :].astype(np.float64) - darkfield
+#                 ) / flatfield
+#                 res_img[
+#                     ch,
+#                     tile.start.z : tile.end.z,
+#                     tile.start.y : tile.end.y,
+#                     tile.start.x : tile.end.x,
+#                 ] += corrected_tile
+#         res_img[ch, :, :, :] /= res_mask.astype(np.float64)
 
-    res_img = np.clip(res_img, a_min=np.iinfo(img_dtype).min, a_max=np.iinfo(img_dtype).max).astype(
-        img_dtype
-    )
+#     res_img = np.clip(res_img, a_min=np.iinfo(img_dtype).min, a_max=np.iinfo(img_dtype).max).astype(
+#         img_dtype
+#     )
 
-    for ch in normalize_intensity_channels:
-        for d in range(res_img.shape[1]):
-            img_adapteq = skimage.exposure.equalize_adapthist(
-                res_img[ch, d, :, :], clip_limit=normalize_intensity_clip_limit
-            )
-            res_img[ch, d, :, :] = (img_adapteq * np.iinfo(img_dtype).max).astype(img_dtype)
+#     for ch in normalize_intensity_channels:
+#         for d in range(res_img.shape[1]):
+#             img_adapteq = skimage.exposure.equalize_adapthist(
+#                 res_img[ch, d, :, :], clip_limit=normalize_intensity_clip_limit
+#             )
+#             res_img[ch, d, :, :] = (img_adapteq * np.iinfo(img_dtype).max).astype(img_dtype)
 
-    for ch in inverse_channels:
-        res_img[ch, :, :, :][res_img[ch, :, :, :] == np.iinfo(img_dtype).min] = np.iinfo(
-            img_dtype
-        ).max
-        res_img[ch, :, :, :] = np.iinfo(img_dtype).max - res_img[ch, :, :, :]
+#     for ch in inverse_channels:
+#         res_img[ch, :, :, :][res_img[ch, :, :, :] == np.iinfo(img_dtype).min] = np.iinfo(
+#             img_dtype
+#         ).max
+#         res_img[ch, :, :, :] = np.iinfo(img_dtype).max - res_img[ch, :, :, :]
 
-    if output_filename is not None:
-        img = ZImg(res_img, infoList[scene])
-        img.save(output_filename)
-    return res_img, infoList[scene]
+#     if output_filename is not None:
+#         img = ZImg(res_img, infoList[scene])
+#         img.save(output_filename)
+#     return res_img, infoList[scene]
 
 
 if __name__ == "__main__":

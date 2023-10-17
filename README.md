@@ -33,16 +33,6 @@
 
 
 
-   03. update conda packages
-   # if has cuda:
-   conda update --all -y -c fenglab -c pytorch-nightly cudatoolkit=11.0
-   # otherwise
-   conda update --all -y -c fenglab -c pytorch-nightly
-
-   04. local packages related to pytorch, need to run if pytorch is updated
-   zsh ./utils/update_libs_depends_on_pytorch.sh
-
-
    # install opencv
    pip install --upgrade --no-cache-dir opencv-contrib-python # or pip install opencv-python
    ```

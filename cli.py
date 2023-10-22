@@ -26,5 +26,6 @@ def slice(input_path, output_path):
 @cli.command(help="Corrects 3D Imaris Stack")
 @click.argument("input_path")
 @click.option("--output_path", "-o", default="", help="Output file path")
-def imaris(input_path, output_path):
-    imaris_shading_correction(input_path, output_path)
+@click.option("--channels", "-c", type=(int, int), default=[0, 1], help="Channels to correct")
+def imaris3D(input_path, output_path, channels):
+    imaris_shading_correction(input_path, output_path, channels)

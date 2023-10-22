@@ -78,17 +78,16 @@ def stack_shading_correction(img_folder: str, result_folder: str = None):
         img_zimg.save(os.path.join(save_folder, f"{img_list[img_idx][:-4]}.tif"))
 
 
-def imaris_shading_correction(img_folder: str, result_folder: str = None):
-    # img_folder = "/Volumes/shared_3/Personal/hyungju/chang/JE_Stitching"
-    # result_folder = "/Volumes/T7/HJ_correction"
-
+def imaris_shading_correction(
+    img_folder: str, result_folder: str = None, channels: list = [0, 1], num_slices: int = 40
+):
     (_, _, file_list) = next(os.walk(img_folder))
     img_list = [fn for fn in file_list if ".ims" in fn]
     num_imgs = len(img_list)
 
     flatfield = []
     darkfield = []
-    for ch in range(2):
+    for ch in channels:
         train_stack = []
         for img_idx in range(num_imgs):
             print(f"Loading {img_list[img_idx]} : {img_idx} out of {num_imgs}")
@@ -99,7 +98,7 @@ def imaris_shading_correction(img_folder: str, result_folder: str = None):
             img_width = img.shape[3]
             img_height = img.shape[4]
 
-            for z_idx in range(0, img_depth, 40):
+            for z_idx in range(0, img_depth, num_slices):
                 train_stack.append(img[0, 0, z_idx, :, :])
 
         train_stack = np.dstack(train_stack)
@@ -107,7 +106,9 @@ def imaris_shading_correction(img_folder: str, result_folder: str = None):
 
         print(f"Estimating shading parameter for channel {ch}")
         flatfield_ch, _ = sc.BaSiC(train_stack, estimate_darkfield=False, working_size=512)
-        flatfield_ch = cv2.resize(flatfield_ch, dsize=(2048, 2048), interpolation=cv2.INTER_CUBIC)
+        flatfield_ch = cv2.resize(
+            flatfield_ch, dsize=(img_width, img_height), interpolation=cv2.INTER_CUBIC
+        )
         # darkfield_ch = cv2.resize(darkfield_ch, dsize=(512, 512), interpolation=cv2.INTER_CUBIC)
 
         flatfield.append(flatfield_ch)
@@ -122,7 +123,7 @@ def imaris_shading_correction(img_folder: str, result_folder: str = None):
         img_width = img.shape[3]
         img_height = img.shape[4]
         corrected_stack = np.zeros(shape=(1, 2, img_depth, img_width, img_height), dtype="uint16")
-        for ch in range(2):
+        for ch in channels:
             for z_idx in range(img_depth):
                 corrected_block = (img[0, ch, z_idx, :, :].astype(np.float64)) / flatfield[ch]
                 corrected_block[corrected_block < 0] = 0

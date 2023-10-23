@@ -26,6 +26,19 @@ def slice(input_path, output_path):
 @cli.command(help="Corrects 3D Imaris Stack")
 @click.argument("input_path")
 @click.option("--output_path", "-o", default="", help="Output file path")
-@click.option("--channels", "-c", type=(int, int), default=[0, 1], help="Channels to correct")
-def imaris3D(input_path, output_path, channels):
-    imaris_shading_correction(input_path, output_path, channels)
+@click.option("--traing_channels", "-t", default="0,1", help="Channels to train on")
+@click.option("--correct_channels", "-c", default="0,1", help="Channels to correct")
+@click.option("--reference_channels", "-r", default=0, help="Reference channel")
+@click.option(
+    "--num_slices", "-n", default=40, help="Number of slices per stack to use for training"
+)
+def imaris3D(
+    input_path, output_path, traing_channels, correct_channels, reference_channels, num_slices
+):
+    traing_channels = [int(x) for x in traing_channels.split(",")]
+    correct_channels = [int(x) for x in correct_channels.split(",")]
+
+    print(correct_channels)
+    imaris_shading_correction(
+        input_path, output_path, traing_channels, correct_channels, reference_channels, num_slices
+    )

@@ -2,6 +2,7 @@ import os
 
 import cv2
 import numpy as np
+import multiprocess as mp
 from imaris_ims_file_reader.ims import ims
 
 from utils import shading_util as sc
@@ -78,60 +79,147 @@ def stack_shading_correction(img_folder: str, result_folder: str = None):
         img_zimg.save(os.path.join(save_folder, f"{img_list[img_idx][:-4]}.tif"))
 
 
+# def imaris_shading_correction(
+#     img_folder: str, result_folder: str = None, channels: list = [0, 1], num_slices: int = 40
+# ):
+#     (_, _, file_list) = next(os.walk(img_folder))
+#     img_list = [fn for fn in file_list if ".ims" in fn]
+#     num_imgs = len(img_list)
+
+#     flatfield = []
+#     darkfield = []
+#     for ch in channels:
+#         train_stack = []
+#         for img_idx in range(num_imgs):
+#             print(f"Loading {img_list[img_idx]} : {img_idx} out of {num_imgs}")
+#             img = ims(os.path.join(img_folder, img_list[img_idx]), ResolutionLevelLock=2)
+
+#             img_chs = img.Channels
+#             img_depth = img.shape[2]
+#             img_width = img.shape[3]
+#             img_height = img.shape[4]
+
+#             for z_idx in range(0, img_depth, num_slices):
+#                 train_stack.append(img[0, 0, z_idx, :, :])
+
+#         train_stack = np.dstack(train_stack)
+#         train_stack = np.moveaxis(train_stack, -1, 0).copy(order="C")
+
+#         print(f"Estimating shading parameter for channel {ch}")
+#         flatfield_ch, _ = sc.BaSiC(train_stack, estimate_darkfield=False, working_size=512)
+#         flatfield_ch = cv2.resize(
+#             flatfield_ch, dsize=(img_width, img_height), interpolation=cv2.INTER_CUBIC
+#         )
+#         # darkfield_ch = cv2.resize(darkfield_ch, dsize=(512, 512), interpolation=cv2.INTER_CUBIC)
+
+#         flatfield.append(flatfield_ch)
+#         # darkfield.append(darkfield_ch)
+
+#     for img_idx in range(num_imgs):
+#         img = ims(os.path.join(img_folder, img_list[img_idx]), ResolutionLevelLock=0)
+#         # Imaris fileformat is [R,C,Z,X,Y] where R is resolution
+
+#         img_chs = img.Channels
+#         img_depth = img.shape[2]
+#         img_width = img.shape[3]
+#         img_height = img.shape[4]
+#         corrected_stack = np.zeros(shape=(1, 2, img_depth, img_width, img_height), dtype="uint16")
+#         for ch in channels:
+#             for z_idx in range(img_depth):
+#                 corrected_block = (img[0, ch, z_idx, :, :].astype(np.float64)) / flatfield[ch]
+#                 corrected_block[corrected_block < 0] = 0
+#                 corrected_stack[0, ch, z_idx, :, :] = corrected_block.astype("uint16")
+
+#         save_folder = result_folder
+#         imaris.ims_from_ims(
+#             corrected_stack,
+#             os.path.join(img_folder, img_list[img_idx]),
+#             os.path.join(save_folder, img_list[img_idx]),
+#         )
+
+
+def process_image(img_paths, channel, num_slices):
+    resolution_level = 2
+    train_stack = []
+    for img_idx, img_path in enumerate(img_paths):
+        print(f"Loading {img_path}: {img_idx} out of {len(img_paths)}")
+        img = ims(img_path, ResolutionLevelLock=resolution_level)
+        img_depth = img.shape[2]
+        img_width = img.shape[3]
+        img_height = img.shape[4]
+        z_idx = [int(x) for x in np.linspace(0, img_depth - 1, num_slices)]
+        for z in z_idx:
+            print(f"Loading slice {z} out of {num_slices}")
+            train_stack.append(img[0, channel, z, :, :])
+    train_stack = np.dstack(train_stack)
+    train_stack = np.moveaxis(train_stack, -1, 0).copy(order="C")
+    print(f"Running BaSic on channel {channel}")
+    flatfield_ch, _ = sc.BaSiC(train_stack, estimate_darkfield=False, working_size=img_width)
+    print(f"Finished estimatic flatfield on {channel}")
+    flatfield_ch = cv2.resize(
+        flatfield_ch,
+        dsize=(img_width << resolution_level, img_height << resolution_level),
+        interpolation=cv2.INTER_CUBIC,
+    )
+    return flatfield_ch
+
+
 def imaris_shading_correction(
-    img_folder: str, result_folder: str = None, channels: list = [0, 1], num_slices: int = 40
+    img_folder: str,
+    result_folder: str = None,
+    train_channels: list = [0, 1],
+    correct_channels: list = [0, 1],
+    ref_channel: int = 0,
+    num_slices: int = 40,
 ):
+    if not result_folder:
+        result_folder = os.path.join(img_folder, "shading_corrected")
+        if not os.path.exists(result_folder):
+            os.mkdir(result_folder)
+
     (_, _, file_list) = next(os.walk(img_folder))
     img_list = [fn for fn in file_list if ".ims" in fn]
     num_imgs = len(img_list)
 
-    flatfield = []
-    darkfield = []
-    for ch in channels:
-        train_stack = []
-        for img_idx in range(num_imgs):
-            print(f"Loading {img_list[img_idx]} : {img_idx} out of {num_imgs}")
-            img = ims(os.path.join(img_folder, img_list[img_idx]), ResolutionLevelLock=2)
+    img = ims(os.path.join(img_folder, img_list[0]))
+    img_channels = img.Channels
 
-            img_chs = img.Channels
-            img_depth = img.shape[2]
-            img_width = img.shape[3]
-            img_height = img.shape[4]
-
-            for z_idx in range(0, img_depth, num_slices):
-                train_stack.append(img[0, 0, z_idx, :, :])
-
-        train_stack = np.dstack(train_stack)
-        train_stack = np.moveaxis(train_stack, -1, 0).copy(order="C")
-
-        print(f"Estimating shading parameter for channel {ch}")
-        flatfield_ch, _ = sc.BaSiC(train_stack, estimate_darkfield=False, working_size=512)
-        flatfield_ch = cv2.resize(
-            flatfield_ch, dsize=(img_width, img_height), interpolation=cv2.INTER_CUBIC
+    with mp.Pool() as pool:
+        flatfield = pool.starmap(
+            process_image,
+            [
+                ([os.path.join(img_folder, x) for x in img_list], ch, num_slices)
+                for ch in train_channels
+            ],
         )
-        # darkfield_ch = cv2.resize(darkfield_ch, dsize=(512, 512), interpolation=cv2.INTER_CUBIC)
-
-        flatfield.append(flatfield_ch)
-        # darkfield.append(darkfield_ch)
+    flatfield_dict = {ch: flatfield_ch for (ch, flatfield_ch) in zip(train_channels, flatfield)}
 
     for img_idx in range(num_imgs):
         img = ims(os.path.join(img_folder, img_list[img_idx]), ResolutionLevelLock=0)
-        # Imaris fileformat is [R,C,Z,X,Y] where R is resolution
-
-        img_chs = img.Channels
         img_depth = img.shape[2]
         img_width = img.shape[3]
         img_height = img.shape[4]
-        corrected_stack = np.zeros(shape=(1, 2, img_depth, img_width, img_height), dtype="uint16")
-        for ch in channels:
-            for z_idx in range(img_depth):
-                corrected_block = (img[0, ch, z_idx, :, :].astype(np.float64)) / flatfield[ch]
-                corrected_block[corrected_block < 0] = 0
-                corrected_stack[0, ch, z_idx, :, :] = corrected_block.astype("uint16")
+        corrected_stack = np.zeros(
+            shape=(1, img_channels, img_depth, img_width, img_height), dtype="uint16"
+        )
 
-        save_folder = result_folder
+        for ch in range(img_channels):
+            if ch not in correct_channels:
+                corrected_stack[0, ch, :, :, :] = img[0, ch, :, :, :]
+                continue
+
+            if ch in train_channels:
+                flatfield_ch = flatfield_dict[ch]
+            else:
+                flatfield_ch = flatfield_dict[ref_channel]
+
+            for z in range(img_depth):
+                corrected_stack[0, ch, z, :, :] = np.clip(
+                    (img[0, ch, z, :, :].astype(np.float64)) / flatfield_ch, 0, None
+                ).astype("uint16")
+
         imaris.ims_from_ims(
             corrected_stack,
             os.path.join(img_folder, img_list[img_idx]),
-            os.path.join(save_folder, img_list[img_idx]),
+            os.path.join(result_folder, img_list[img_idx]),
         )

@@ -14,7 +14,7 @@
    conda clean --all -y
 
    # install other conda packages ...
-   conda install numpy h5py cython imageio scikit-image matplotlib yarn imaris-ims-file-reader
+   conda install numpy h5py cython imageio scikit-image matplotlib yarn imaris-ims-file-reader multiprocess
 
    # install pytorch
    # Linux or Windows with cuda:

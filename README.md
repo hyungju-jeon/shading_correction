@@ -6,7 +6,7 @@
    ```bash
    # create new environment
    conda env remove -n ENV_NAME -y
-   conda create -n ENV_NAME -y python=3.8
+   conda create -n ENV_NAME -y python=3.11
 
    # install conda packages
    conda activate ENV_NAME

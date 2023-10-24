@@ -89,14 +89,14 @@ def process_image(img_paths, channel, num_slices):
         img_width = img.shape[3]
         img_height = img.shape[4]
         z_idx = [int(x) for x in np.linspace(0, img_depth - 1, num_slices)]
-        for z in z_idx:
-            print(f"Loading slice {z} out of {num_slices}")
+        for slice_count, z in enumerate(z_idx):
+            print(f"Loading slice {z}. {slice_count} out of {num_slices}")
             train_stack.append(img[0, channel, z, :, :])
     train_stack = np.dstack(train_stack)
     train_stack = np.moveaxis(train_stack, -1, 0).copy(order="C")
     print(f"Running BaSic on channel {channel}")
     flatfield_ch, _ = sc.BaSiC(train_stack, estimate_darkfield=False, working_size=img_width)
-    print(f"Finished estimatic flatfield on {channel}")
+    print(f"Finished estimating flatfield on {channel}")
     flatfield_ch = cv2.resize(
         flatfield_ch,
         dsize=(img_width << resolution_level, img_height << resolution_level),
@@ -154,7 +154,8 @@ def imaris_shading_correction(
             else:
                 flatfield_ch = flatfield_dict[ref_channel]
 
-            for z in range(img_depth):
+            for i, z in enumerate(range(img_depth)):
+                print(f"Correcting channel {ch} in {img_list[img_idx]} ({i} / {img_depth})")
                 corrected_stack[0, ch, z, :, :] = np.clip(
                     (img[0, ch, z, :, :].astype(np.float64)) / flatfield_ch, 0, None
                 ).astype("uint16")

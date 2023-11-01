@@ -125,7 +125,7 @@ def imaris_shading_correction(
     img = ims(os.path.join(img_folder, img_list[0]))
     img_channels = img.Channels
 
-    with mp.Pool() as pool:
+    with mp.Pool(max_workers=2) as pool:
         flatfield = pool.starmap(
             process_image,
             [
@@ -134,7 +134,8 @@ def imaris_shading_correction(
             ],
         )
     flatfield_dict = {ch: flatfield_ch for (ch, flatfield_ch) in zip(train_channels, flatfield)}
-
+    
+    print(f"Applying shading Correction")
     for img_idx in range(num_imgs):
         img = ims(os.path.join(img_folder, img_list[img_idx]), ResolutionLevelLock=0)
         img_depth = img.shape[2]

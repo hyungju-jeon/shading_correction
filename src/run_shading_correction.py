@@ -134,7 +134,7 @@ def imaris_shading_correction(
             ],
         )
     flatfield_dict = {ch: flatfield_ch for (ch, flatfield_ch) in zip(train_channels, flatfield)}
-    
+
     print(f"Applying shading Correction")
     for img_idx in range(num_imgs):
         img = ims(os.path.join(img_folder, img_list[img_idx]), ResolutionLevelLock=0)
@@ -162,7 +162,7 @@ def imaris_shading_correction(
                 ).astype("uint16")
 
         imaris.ims_from_ims(
-            corrected_stack,
+            np.flip(corrected_stack, axis=3),
             os.path.join(img_folder, img_list[img_idx]),
             os.path.join(result_folder, img_list[img_idx]),
         )

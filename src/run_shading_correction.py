@@ -125,7 +125,7 @@ def imaris_shading_correction(
     img = ims(os.path.join(img_folder, img_list[0]))
     img_channels = img.Channels
 
-    with mp.Pool(max_workers=2) as pool:
+    with mp.Pool(processes=len(train_channels)) as pool:
         flatfield = pool.starmap(
             process_image,
             [
